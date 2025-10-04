@@ -74,6 +74,43 @@ struct chunk_cells
     }
 };
 
+template<char quote_char>
+struct chunk_rows_quoted
+{
+    static const char*
+    chunk(const char* begin, const char* dead_end)
+    {
+        bool in_quotes = false;
+        for (const char* p = begin; p < dead_end; ++p)
+        {
+            if (*p == quote_char)
+            {
+                if (in_quotes)
+                {
+                    // If we are in quotes, check for an escaped quote `""`
+                    if (p + 1 < dead_end && *(p + 1) == quote_char)
+                    {
+                        p++; // It's an escaped quote, so we skip the next char
+                    }
+                    else
+                    {
+                        in_quotes = false; // It's a closing quote
+                    }
+                }
+                else
+                {
+                    in_quotes = true; // It's an opening quote
+                }
+            }
+            else if (*p == '\n' && !in_quotes)
+            {
+                return p; // Found the end of the row
+            }
+        }
+        return dead_end; // Reached the end of the file
+    }
+};
+
 template<class T, class chunk_policy>
 class fw_iterator
 {
@@ -497,7 +534,7 @@ public:
         }
     };
 
-    using row_iterator = detail::fw_iterator<row, detail::chunk_rows>;
+    using row_iterator = detail::fw_iterator<row, detail::chunk_rows_quoted<quote_char::value>>;
 
     row_iterator
     begin() const
